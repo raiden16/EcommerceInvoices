@@ -104,7 +104,7 @@ Namespace My
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("ZTEKNOTES")>  _
+         Global.System.Configuration.DefaultSettingValueAttribute("TEKNOSTEP_PROD")>  _
         Public Property CompanyDB() As String
             Get
                 Return CType(Me("CompanyDB"),String)
@@ -164,7 +164,7 @@ Namespace My
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("sistemas@tekno-step.com")>  _
+         Global.System.Configuration.DefaultSettingValueAttribute("informacion-vendedor@amazon.com.mx")>  _
         Public Property Remitente() As String
             Get
                 Return CType(Me("Remitente"),String)
@@ -176,7 +176,7 @@ Namespace My
         
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("C:\Users\lvazquez\Desktop\LL\XML y PDF\")>  _
+         Global.System.Configuration.DefaultSettingValueAttribute("\\192.168.10.12\cfdi-hp\TEKNOSTEP_PROD\Anexos\")>  _
         Public Property RutaPDF() As String
             Get
                 Return CType(Me("RutaPDF"),String)

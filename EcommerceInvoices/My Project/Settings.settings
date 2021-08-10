@@ -15,7 +15,7 @@
       <Value Profile="(Default)">Tekno2020.*</Value>
     </Setting>
     <Setting Name="CompanyDB" Type="System.String" Scope="User">
-      <Value Profile="(Default)">ZTEKNOTES</Value>
+      <Value Profile="(Default)">TEKNOSTEP_PROD</Value>
     </Setting>
     <Setting Name="UserName" Type="System.String" Scope="User">
       <Value Profile="(Default)">manager</Value>
@@ -30,10 +30,10 @@
       <Value Profile="(Default)">993</Value>
     </Setting>
     <Setting Name="Remitente" Type="System.String" Scope="User">
-      <Value Profile="(Default)">sistemas@tekno-step.com</Value>
+      <Value Profile="(Default)">informacion-vendedor@amazon.com.mx</Value>
     </Setting>
     <Setting Name="RutaPDF" Type="System.String" Scope="User">
-      <Value Profile="(Default)">C:\Users\lvazquez\Desktop\LL\XML y PDF\</Value>
+      <Value Profile="(Default)">\\192.168.10.12\cfdi-hp\TEKNOSTEP_PROD\Anexos\</Value>
     </Setting>
     <Setting Name="EmailCC" Type="System.String" Scope="User">
       <Value Profile="(Default)">paola.rodriguez@tekno-step.com,edith.pulido@tekno-step.com,eduardo.pacheco@tekno-step.com,angel.martinez@tekno-step.com</Value>

@@ -4,6 +4,7 @@ Imports AE.Net.Mail.SearchCondition
 Imports System.IO
 Imports iTextSharp.text
 Imports iTextSharp.text.pdf
+Imports System.Text.RegularExpressions
 
 Module Module1
 
@@ -55,6 +56,7 @@ Module Module1
         Dim uidsf As String()
         Dim order, sku, Destinatario, DestinatarioPass As String
         Dim ic As AE.Net.Mail.ImapClient
+        Dim H1, H2 As MatchCollection
 
         oRecSetH = SBOCompany.GetBusinessObject(SAPbobsCOM.BoObjectTypes.BoRecordset)
         oRecSetH2 = SBOCompany.GetBusinessObject(SAPbobsCOM.BoObjectTypes.BoRecordset)
@@ -87,61 +89,251 @@ Module Module1
 
                     If uidf = uid Then
 
-                        Dim mensaje As MailMessage = ic.GetMessage(uid)
-                        Dim skuidx, skulgt, skucmpt, skureverse, skulike, qtyidx, dateidx, qtylgt, itemidx, itemlgt, itemcmpt, itemreverse, statusidx, priceidx, pricelgt, pricecmpt, pricereverse,
-                            taxidx, dryidx, drylgt, drycmpt, dryreverse, taxdryidx, measures, measuresreverse, orderidx, orderlgt, mssgidx, body, header, frommsg, datemsg, solditemsidx,
-                            solditemslgt, solditems, pthsidx, profits, steps, limit, dlvrydateidx, dlvrydatelgt, dlvrydatecmpt, statuslgt, statuscmpt, amazonidx, amazonlgt, amazoncmpt, profitsidx, profitslgt,
-                            profitscmpt, profitslbl, pathpdf, soldmssg As String
-                        Dim measure1, measure2, m2, qty, lineTotal As Double
-                        Dim price, totalm2, dry As Decimal
+                        GetInfoEmail(ic, uidf)
 
-                        frommsg = mensaje.From.ToString
-                        datemsg = Now.Date.ToString
-                        header = mensaje.Subject.ToString
-                        body = mensaje.Body.ToString
+                    End If
 
-                        soldmssg = header.IndexOf("Vendido, ¡envíalo ya!:")
+                Next
 
-                        If soldmssg > 0 Then
+            Next
 
-                            orderidx = mensaje.Body.ToString.IndexOf("Número de pedido:")
-                            mssgidx = mensaje.Body.ToString.IndexOf("Envía")
-                            orderlgt = mssgidx - (orderidx + 17)
-                            order = mensaje.Body.ToString.Substring(orderidx + 17, orderlgt).Trim
+        Catch ex As Exception
 
-                            solditemsidx = header.IndexOf("artículos vendidos")
+            Dim stError As String
+            stError = "Error al leer el correo electrónico, ReadEmail. " & ex.Message
+            Setlog(stError, order, sku, " ", " ", " ")
 
-                            If solditemsidx > 0 Then
+        End Try
 
-                                pthsidx = header.IndexOf("(")
-                                solditemslgt = solditemsidx - (pthsidx + 1)
-                                solditems = header.Substring(pthsidx + 1, solditemslgt).Trim
+    End Function
 
-                            Else
 
-                                solditems = "1"
+    Public Function GetInfoEmail(ByVal ic As AE.Net.Mail.ImapClient, ByVal uidf As String)
 
-                            End If
+        Dim stQueryH2, stQueryH3 As String
+        Dim oRecSetH2, oRecSetH3 As SAPbobsCOM.Recordset
+        Dim H1, H2 As MatchCollection
+        Dim order, sku As String
 
-                            skuidx = mensaje.Body.ToString.IndexOf("SKU:")
-                            qtyidx = mensaje.Body.ToString.IndexOf("Cantidad:")
-                            skulgt = qtyidx - (skuidx + 4)
-                            skucmpt = mensaje.Body.ToString.Substring(skuidx + 4, skulgt)
-                            skureverse = StrReverse(skucmpt)
-                            sku = mensaje.Body.ToString.Substring(skuidx + 4, skulgt - (skureverse.IndexOf("-") + 1)).Trim
+        oRecSetH2 = SBOCompany.GetBusinessObject(SAPbobsCOM.BoObjectTypes.BoRecordset)
+        oRecSetH3 = SBOCompany.GetBusinessObject(SAPbobsCOM.BoObjectTypes.BoRecordset)
 
-                            dateidx = mensaje.Body.ToString.IndexOf("Fecha del pedido:")
-                            qtylgt = dateidx - (qtyidx + 9)
-                            qty = mensaje.Body.ToString.Substring(qtyidx + 9, qtylgt).Trim
+        Dim mensaje As MailMessage = ic.GetMessage(uidf)
+        Dim skuidx, skulgt, skucmpt, skureverse, skulike, qtyidx, dateidx, qtylgt, itemidx, itemlgt, itemcmpt, itemreverse, statusidx, priceidx, pricelgt, pricecmpt, pricereverse,
+                                    taxidx, dryidx, drylgt, drycmpt, dryreverse, taxdryidx, measures, measuresreverse, orderidx, orderlgt, mssgidx, body, header, frommsg, datemsg, solditemsidx,
+                                    solditems, profits, steps, limit, dlvrydateidx, dlvrydatelgt, dlvrydatecmpt, statuslgt, statuscmpt, amazonidx, amazonlgt, amazoncmpt, profitsidx, profitslgt,
+                                    profitscmpt, profitslbl, pathpdf, soldmssg, plecalgt, comalgt, piezascmpt As String
+        Dim measure1, measure2, m2, qty, lineTotal As Double
+        Dim price, totalm2, dry As Decimal
 
-                            skulike = sku.Substring(0, 2)
+        Try
 
-                            If skulike = "TG" Then
+            frommsg = mensaje.From.ToString
+            datemsg = Now.Date.ToString
+            header = mensaje.Subject.ToString
+            body = ArreglarTexto(mensaje.Body.ToString, "<br>", " ")
 
-                                itemidx = mensaje.Body.ToString.IndexOf("Artículo:")
-                                statusidx = mensaje.Body.ToString.IndexOf("Estado:")
-                                itemlgt = statusidx - (itemidx + 9)
-                                itemcmpt = mensaje.Body.Substring(itemidx + 9, itemlgt)
+            H2 = Regex.Matches(header, ("Vendido, ¡envíalo ya!:"), RegexOptions.IgnoreCase)
+            soldmssg = H2.Count.ToString
+
+            If soldmssg > 0 Then
+
+                orderidx = body.IndexOf("Número de pedido:")
+                mssgidx = body.IndexOf("Envía")
+                orderlgt = mssgidx - (orderidx + 17)
+                order = body.Substring(orderidx + 17, orderlgt).Trim
+
+                solditemsidx = header.IndexOf("artículos vendidos")
+
+                If solditemsidx > 0 Then
+
+                    H1 = Regex.Matches(body, ("SKU:"), RegexOptions.IgnoreCase)
+                    solditems = H1.Count.ToString
+
+                Else
+
+                    solditems = "1"
+
+                End If
+
+                skuidx = body.IndexOf("SKU:")
+                qtyidx = body.IndexOf("Cantidad:")
+                skulgt = qtyidx - (skuidx + 4)
+                skucmpt = body.Substring(skuidx + 4, skulgt)
+                skureverse = StrReverse(skucmpt)
+                sku = body.Substring(skuidx + 4, skulgt - (skureverse.IndexOf("-") + 1)).Trim
+
+                dateidx = body.IndexOf("Fecha del pedido:")
+                qtylgt = dateidx - (qtyidx + 9)
+                qty = body.Substring(qtyidx + 9, qtylgt).Trim
+
+                skulike = sku.Substring(0, 2)
+
+                If skulike = "TG" Then
+
+                    itemidx = body.IndexOf("Artículo:")
+                    statusidx = body.IndexOf("Estado:")
+                    itemlgt = statusidx - (itemidx + 9)
+                    itemcmpt = mensaje.Body.Substring(itemidx + 9, itemlgt)
+                    plecalgt = body.Substring(itemidx + 9, itemlgt).IndexOf("|")
+                    comalgt = body.Substring(itemidx + 9, itemlgt).IndexOf(",")
+
+                    If plecalgt > 0 Then
+
+                        itemreverse = StrReverse(itemcmpt)
+
+                        measures = StrReverse(itemreverse.Substring(0, itemreverse.IndexOf("|")))
+                        measure1 = measures.Substring(0, measures.IndexOf("m"))
+                        measuresreverse = StrReverse(measures).Trim
+                        measure2 = StrReverse(measuresreverse.Substring(1, measuresreverse.IndexOf("x") - 1))
+                        m2 = measure1 * measure2
+
+                        totalm2 = qty * m2
+
+                    ElseIf comalgt > 0 Then
+
+                        itemlgt = body.Substring(itemidx + 9, itemlgt).IndexOf("m2")
+                        piezascmpt = body.Substring(itemidx + 9, itemlgt)
+                        itemreverse = StrReverse(piezascmpt)
+
+                        m2 = StrReverse(itemreverse.Substring(0, itemreverse.IndexOf(","))).Trim
+                        totalm2 = qty * m2
+
+                    End If
+
+
+                ElseIf skulike = "SG" Then
+
+                    itemidx = body.IndexOf("Artículo:")
+                    statusidx = body.IndexOf("Estado:")
+                    itemlgt = statusidx - (itemidx + 9)
+                    itemcmpt = mensaje.Body.Substring(itemidx + 9, itemlgt)
+                    plecalgt = body.Substring(itemidx + 9, itemlgt).IndexOf("|")
+                    comalgt = body.Substring(itemidx + 9, itemlgt).IndexOf(",")
+
+                    If plecalgt > 0 Then
+
+                        itemreverse = StrReverse(itemcmpt)
+
+                        measures = StrReverse(itemreverse.Substring(0, itemreverse.IndexOf("|")))
+                        measure1 = measures.Substring(0, measures.IndexOf("iezas") - 1).Trim
+                        m2 = measure1 / 4
+
+                        totalm2 = qty * m2
+
+                    ElseIf comalgt > 0 Then
+
+                        itemlgt = body.Substring(itemidx + 9, itemlgt).IndexOf("m2")
+                        piezascmpt = body.Substring(itemidx + 9, itemlgt)
+                        itemreverse = StrReverse(piezascmpt)
+
+                        m2 = StrReverse(itemreverse.Substring(0, itemreverse.IndexOf(","))).Trim
+                        totalm2 = qty * m2
+
+                    End If
+
+
+                Else
+
+                    itemidx = body.IndexOf("Artículo:")
+                    statusidx = body.IndexOf("Estado:")
+                    itemlgt = statusidx - (itemidx + 9)
+                    itemcmpt = body.Substring(itemidx + 9, itemlgt)
+                    totalm2 = qty
+
+                End If
+
+                priceidx = body.IndexOf("Precio:")
+                taxidx = body.IndexOf("Impuesto:")
+                pricelgt = taxidx - (priceidx + 7)
+                pricecmpt = body.Substring(priceidx + 7, pricelgt).Trim
+                pricereverse = StrReverse(pricecmpt)
+
+                lineTotal = StrReverse(pricereverse.Substring(0, pricereverse.IndexOf("$") - 1))
+                price = Format(lineTotal / totalm2, "0.00")
+
+                dlvrydateidx = body.IndexOf("Fecha límite de envío:")
+                dlvrydatelgt = itemidx - (dlvrydateidx + 22)
+                dlvrydatecmpt = body.Substring(dlvrydateidx + 22, dlvrydatelgt).Trim
+
+                statuslgt = skuidx - (statusidx + 7)
+                statuscmpt = body.Substring(statusidx + 7, statuslgt).Trim
+
+                amazonidx = body.IndexOf("Cargos de Amazon:")
+                profitsidx = body.IndexOf("Tus ganancias:")
+                amazonlgt = profitsidx - (amazonidx + 17)
+                amazoncmpt = body.Substring(amazonidx + 17, amazonlgt)
+
+                profits = profitsidx + 14
+                steps = body.IndexOf("- - - - - - - - - - - - - - - - - - -")
+
+                If solditems > 1 Then
+
+                    limit = steps - profits
+                    skuidx = body.Substring(profits, limit).IndexOf("SKU:")
+                    dlvrydateidx = body.Substring(profits, limit).ToString.IndexOf("Fecha límite de envío:")
+                    profitscmpt = body.Substring(profits, dlvrydateidx).Trim
+
+                Else
+
+                    profitslgt = steps - profits
+                    profitscmpt = body.Substring(profits, profitslgt).Trim
+
+                End If
+
+                stQueryH2 = "Insert Into " & My.Settings.CompanyDB & ".TEMP_Ecommerce values('" & sku & "'," & price & "," & totalm2 & ",'1','" & dlvrydatecmpt & "','" & itemcmpt & "','" & statuscmpt & "','" & qty & "'," & lineTotal & ",'" & amazoncmpt & "','" & profitscmpt & "')"
+                oRecSetH2.DoQuery(stQueryH2)
+
+                dryidx = body.IndexOf("Costo del envío:")
+
+                If dryidx > 0 Then
+
+                    taxdryidx = body.IndexOf("Impuesto sobre el envío:")
+
+                    If taxdryidx > 0 Then
+
+                        drylgt = taxdryidx - (dryidx + 16)
+                        drycmpt = body.Substring(dryidx + 16, drylgt).Trim
+                        dryreverse = StrReverse(drycmpt)
+                        dry = StrReverse(dryreverse.Substring(0, dryreverse.IndexOf("$") - 1))
+
+                        stQueryH2 = "Insert Into " & My.Settings.CompanyDB & ".TEMP_Ecommerce values('SERV'," & dry & ",1,'1','" & dlvrydatecmpt & "','" & itemcmpt & "','" & statuscmpt & "','" & qty & "'," & lineTotal & ",'" & amazoncmpt & "','" & profitscmpt & "')"
+                        oRecSetH2.DoQuery(stQueryH2)
+
+                    End If
+
+                End If
+
+                If solditems > 1 Then
+
+                    For x As Integer = 0 To solditems - 2
+
+                        limit = steps - profits
+
+                        skuidx = body.Substring(profits, limit).IndexOf("SKU:")
+                        qtyidx = body.Substring(profits, limit).IndexOf("Cantidad:")
+                        skulgt = qtyidx - (skuidx + 4)
+                        skucmpt = body.Substring(profits, limit).ToString.Substring(skuidx + 4, skulgt)
+                        skureverse = StrReverse(skucmpt)
+                        sku = body.Substring(profits, limit).ToString.Substring(skuidx + 4, skulgt - (skureverse.IndexOf("-") + 1)).Trim
+
+                        dateidx = body.Substring(profits, limit).IndexOf("Fecha del pedido:")
+                        qtylgt = dateidx - (qtyidx + 9)
+                        qty = body.Substring(profits, limit).ToString.Substring(qtyidx + 9, qtylgt).Trim
+
+                        skulike = sku.Substring(0, 2)
+
+                        If skulike = "TG" Then
+
+                            itemidx = body.Substring(profits, limit).IndexOf("Artículo:")
+                            statusidx = body.Substring(profits, limit).IndexOf("Estado:")
+                            itemlgt = statusidx - (itemidx + 9)
+                            itemcmpt = body.Substring(profits, limit).Substring(itemidx + 9, itemlgt)
+                            plecalgt = body.Substring(profits, limit).Substring(itemidx + 9, itemlgt).IndexOf("|")
+                            comalgt = body.Substring(profits, limit).Substring(itemidx + 9, itemlgt).IndexOf(",")
+
+                            If plecalgt > 0 Then
+
                                 itemreverse = StrReverse(itemcmpt)
 
                                 measures = StrReverse(itemreverse.Substring(0, itemreverse.IndexOf("|")))
@@ -152,221 +344,139 @@ Module Module1
 
                                 totalm2 = qty * m2
 
-                            ElseIf skulike = "SG" Then
+                            ElseIf comalgt > 0 Then
 
-                                itemidx = mensaje.Body.ToString.IndexOf("Artículo:")
-                                statusidx = mensaje.Body.ToString.IndexOf("Estado:")
-                                itemlgt = statusidx - (itemidx + 9)
-                                itemcmpt = mensaje.Body.Substring(itemidx + 9, itemlgt)
+                                itemlgt = body.Substring(profits, limit).Substring(itemidx + 9, itemlgt).IndexOf("m2")
+                                piezascmpt = body.Substring(profits, limit).Substring(itemidx + 9, itemlgt)
+                                itemreverse = StrReverse(piezascmpt)
+
+                                m2 = StrReverse(itemreverse.Substring(0, itemreverse.IndexOf(","))).Trim
+                                totalm2 = qty * m2
+
+
+                            End If
+
+
+                        ElseIf skulike = "SG" Then
+
+                            itemidx = body.Substring(profits, limit).IndexOf("Artículo:")
+                            statusidx = body.Substring(profits, limit).IndexOf("Estado:")
+                            itemlgt = statusidx - (itemidx + 9)
+                            itemcmpt = body.Substring(profits, limit).Substring(itemidx + 9, itemlgt)
+                            plecalgt = body.Substring(profits, limit).Substring(itemidx + 9, itemlgt).IndexOf("|")
+                            comalgt = body.Substring(profits, limit).Substring(itemidx + 9, itemlgt).IndexOf(",")
+
+                            If plecalgt > 0 Then
+
                                 itemreverse = StrReverse(itemcmpt)
 
                                 measures = StrReverse(itemreverse.Substring(0, itemreverse.IndexOf("|")))
-                                measure1 = measures.Substring(0, measures.IndexOf("piezas")).Trim
+                                measure1 = measures.Substring(0, measures.IndexOf("Piezas")).Trim
                                 m2 = measure1 / 4
 
                                 totalm2 = qty * m2
 
-                            Else
+                            ElseIf comalgt > 0 Then
 
-                                itemidx = mensaje.Body.ToString.IndexOf("Artículo:")
-                                statusidx = mensaje.Body.ToString.IndexOf("Estado:")
-                                itemlgt = statusidx - (itemidx + 9)
-                                itemcmpt = mensaje.Body.Substring(itemidx + 9, itemlgt)
-                                totalm2 = qty
+                                itemlgt = body.Substring(profits, limit).Substring(itemidx + 9, itemlgt).IndexOf("m2")
+                                piezascmpt = body.Substring(profits, limit).Substring(itemidx + 9, itemlgt)
+                                itemreverse = StrReverse(piezascmpt)
 
-                            End If
-
-                            priceidx = mensaje.Body.ToString.IndexOf("Precio:")
-                            taxidx = mensaje.Body.ToString.IndexOf("Impuesto:")
-                            pricelgt = taxidx - (priceidx + 7)
-                            pricecmpt = mensaje.Body.Substring(priceidx + 7, pricelgt).Trim
-                            pricereverse = StrReverse(pricecmpt)
-
-                            lineTotal = StrReverse(pricereverse.Substring(0, pricereverse.IndexOf("$") - 1))
-                            price = Format(lineTotal / totalm2, "0.00")
-
-                            dlvrydateidx = mensaje.Body.ToString.IndexOf("Fecha límite de envío:")
-                            dlvrydatelgt = itemidx - (dlvrydateidx + 22)
-                            dlvrydatecmpt = mensaje.Body.Substring(dlvrydateidx + 22, dlvrydatelgt).Trim
-
-                            statuslgt = skuidx - (statusidx + 7)
-                            statuscmpt = mensaje.Body.Substring(statusidx + 7, statuslgt).Trim
-
-                            amazonidx = mensaje.Body.ToString.IndexOf("Cargos de Amazon:")
-                            profitsidx = mensaje.Body.ToString.IndexOf("Tus ganancias:")
-                            amazonlgt = profitsidx - (amazonidx + 17)
-                            amazoncmpt = mensaje.Body.Substring(amazonidx + 17, amazonlgt)
-
-                            profits = profitsidx + 14
-                            steps = mensaje.Body.ToString.IndexOf("- - - - - - - - - - - - - - - - - - -")
-
-                            If solditems > 1 Then
-
-                                limit = steps - profits
-                                dlvrydateidx = mensaje.Body.Substring(profits, limit).ToString.IndexOf("Fecha límite de envío:")
-                                profitscmpt = mensaje.Body.Substring(profits, dlvrydateidx).Trim
-
-                            Else
-
-                                profitslgt = steps - profits
-                                profitscmpt = mensaje.Body.Substring(profits, profitslgt).Trim
+                                m2 = StrReverse(itemreverse.Substring(0, itemreverse.IndexOf(","))).Trim
+                                totalm2 = qty * m2
 
                             End If
 
-                            stQueryH2 = "Insert Into " & My.Settings.CompanyDB & ".TEMP_Ecommerce values('" & sku & "'," & price & "," & totalm2 & ",'1','" & dlvrydatecmpt & "','" & itemcmpt & "','" & statuscmpt & "','" & qty & "'," & lineTotal & ",'" & amazoncmpt & "','" & profitscmpt & "')"
-                            oRecSetH2.DoQuery(stQueryH2)
 
-                            dryidx = mensaje.Body.ToString.IndexOf("Costo del envío:")
+                        Else
 
-                            If dryidx > 0 Then
+                            itemidx = body.Substring(profits, limit).IndexOf("Artículo:")
+                            statusidx = body.Substring(profits, limit).IndexOf("Estado:")
+                            itemlgt = statusidx - (itemidx + 9)
+                            itemcmpt = body.Substring(profits, limit).Substring(itemidx + 9, itemlgt)
+                            totalm2 = qty
 
-                                taxdryidx = mensaje.Body.ToString.IndexOf("Impuesto sobre el envío:")
+                        End If
+
+                        priceidx = body.Substring(profits, limit).IndexOf("Precio:")
+                        taxidx = body.Substring(profits, limit).IndexOf("Impuesto:")
+                        pricelgt = taxidx - (priceidx + 7)
+                        pricecmpt = body.Substring(profits, limit).Substring(priceidx + 7, pricelgt).Trim
+                        pricereverse = StrReverse(pricecmpt)
+                        lineTotal = StrReverse(pricereverse.Substring(0, pricereverse.IndexOf("$") - 1))
+                        price = Format(lineTotal / totalm2, "0.00")
+
+                        dlvrydateidx = body.Substring(profits, limit).ToString.IndexOf("Fecha límite de envío:")
+                        dlvrydatelgt = itemidx - (dlvrydateidx + 22)
+                        dlvrydatecmpt = body.Substring(profits, limit).Substring(dlvrydateidx + 22, dlvrydatelgt).Trim
+
+                        statuslgt = skuidx - (statusidx + 7)
+                        statuscmpt = body.Substring(profits, limit).Substring(statusidx + 7, statuslgt).Trim
+
+                        amazonidx = body.Substring(profits, limit).ToString.IndexOf("Cargos de Amazon:")
+                        profitsidx = body.Substring(profits, limit).ToString.IndexOf("Tus ganancias:")
+                        amazonlgt = profitsidx - (amazonidx + 17)
+                        amazoncmpt = body.Substring(profits, limit).Substring(amazonidx + 17, amazonlgt)
+
+                        If x < solditems - 2 Then
+
+                            profitslbl = profits + body.ToString.Substring(profits, limit).IndexOf("Tus ganancias:") + 14
+                            limit = steps - profitslbl
+                            dlvrydateidx = body.Substring(profitslbl, limit).ToString.IndexOf("Fecha límite de envío:")
+                            profitscmpt = body.Substring(profitslbl, dlvrydateidx).Trim
+
+                        Else
+
+                            profitslbl = profits + body.ToString.Substring(profits, limit).IndexOf("Tus ganancias:") + 14
+                            profitslgt = steps - profitslbl
+                            profitscmpt = body.Substring(profitslbl, profitslgt).Trim
+
+                        End If
+
+                        stQueryH2 = "Insert Into " & My.Settings.CompanyDB & ".TEMP_Ecommerce values('" & sku & "'," & price & "," & totalm2 & ",'" & x + 2 & "','" & dlvrydatecmpt & "','" & itemcmpt & "','" & statuscmpt & "','" & qty & "'," & lineTotal & ",'" & amazoncmpt & "','" & profitscmpt & "')"
+                        oRecSetH2.DoQuery(stQueryH2)
+
+                        dryidx = body.Substring(profits, limit).IndexOf("Costo del envío:")
+
+                        If dryidx > 0 Then
+
+                            taxdryidx = body.Substring(profits, limit).IndexOf("Impuesto sobre el envío:")
+
+                            If taxdryidx > 0 Then
+
                                 drylgt = taxdryidx - (dryidx + 16)
-                                drycmpt = mensaje.Body.Substring(dryidx + 16, drylgt).Trim
+                                drycmpt = body.Substring(profits, limit).Substring(dryidx + 16, drylgt).Trim
                                 dryreverse = StrReverse(drycmpt)
                                 dry = StrReverse(dryreverse.Substring(0, dryreverse.IndexOf("$") - 1))
 
-                                stQueryH2 = "Insert Into " & My.Settings.CompanyDB & ".TEMP_Ecommerce values('SERV'," & dry & ",1,'1','" & dlvrydatecmpt & "','" & itemcmpt & "','" & statuscmpt & "','" & qty & "'," & lineTotal & ",'" & amazoncmpt & "','" & profitscmpt & "')"
+                                stQueryH2 = "Insert Into " & My.Settings.CompanyDB & ".TEMP_Ecommerce values('SERV'," & dry & ",1,'" & x + 2 & "','" & dlvrydatecmpt & "','" & itemcmpt & "','" & statuscmpt & "','" & qty & "'," & lineTotal & ",'" & amazoncmpt & "','" & profitscmpt & "')"
                                 oRecSetH2.DoQuery(stQueryH2)
 
                             End If
 
-                            If solditems > 1 Then
-
-                                For x As Integer = 0 To solditems - 2
-
-                                    limit = steps - profits
-
-                                    skuidx = mensaje.Body.Substring(profits, limit).IndexOf("SKU:")
-                                    qtyidx = mensaje.Body.Substring(profits, limit).IndexOf("Cantidad:")
-                                    skulgt = qtyidx - (skuidx + 4)
-                                    skucmpt = mensaje.Body.Substring(profits, limit).ToString.Substring(skuidx + 4, skulgt)
-                                    skureverse = StrReverse(skucmpt)
-                                    sku = mensaje.Body.Substring(profits, limit).ToString.Substring(skuidx + 4, skulgt - (skureverse.IndexOf("-") + 1)).Trim
-
-                                    dateidx = mensaje.Body.Substring(profits, limit).IndexOf("Fecha del pedido:")
-                                    qtylgt = dateidx - (qtyidx + 9)
-                                    qty = mensaje.Body.Substring(profits, limit).ToString.Substring(qtyidx + 9, qtylgt).Trim
-
-                                    skulike = sku.Substring(0, 2)
-
-                                    If skulike = "TG" Then
-
-                                        itemidx = mensaje.Body.Substring(profits, limit).IndexOf("Artículo:")
-                                        statusidx = mensaje.Body.Substring(profits, limit).IndexOf("Estado:")
-                                        itemlgt = statusidx - (itemidx + 9)
-                                        itemcmpt = mensaje.Body.Substring(profits, limit).Substring(itemidx + 9, itemlgt)
-                                        itemreverse = StrReverse(itemcmpt)
-
-                                        measures = StrReverse(itemreverse.Substring(0, itemreverse.IndexOf("|")))
-                                        measure1 = measures.Substring(0, measures.IndexOf("m"))
-                                        measuresreverse = StrReverse(measures).Trim
-                                        measure2 = StrReverse(measuresreverse.Substring(1, measuresreverse.IndexOf("x") - 1))
-                                        m2 = measure1 * measure2
-
-                                        totalm2 = qty * m2
-
-                                    ElseIf skulike = "SG" Then
-
-                                        itemidx = mensaje.Body.Substring(profits, limit).IndexOf("Artículo:")
-                                        statusidx = mensaje.Body.Substring(profits, limit).IndexOf("Estado:")
-                                        itemlgt = statusidx - (itemidx + 9)
-                                        itemcmpt = mensaje.Body.Substring(profits, limit).Substring(itemidx + 9, itemlgt)
-                                        itemreverse = StrReverse(itemcmpt)
-
-                                        measures = StrReverse(itemreverse.Substring(0, itemreverse.IndexOf("|")))
-                                        measure1 = measures.Substring(0, measures.IndexOf("Piezas")).Trim
-                                        m2 = measure1 / 4
-
-                                        totalm2 = qty * m2
-
-                                    Else
-
-                                        'requrido tapetes es por piezas
-                                        totalm2 = qty
-
-                                    End If
-
-                                    priceidx = mensaje.Body.Substring(profits, limit).IndexOf("Precio:")
-                                    taxidx = mensaje.Body.Substring(profits, limit).IndexOf("Impuesto:")
-                                    pricelgt = taxidx - (priceidx + 7)
-                                    pricecmpt = mensaje.Body.Substring(profits, limit).Substring(priceidx + 7, pricelgt).Trim
-                                    pricereverse = StrReverse(pricecmpt)
-                                    lineTotal = StrReverse(pricereverse.Substring(0, pricereverse.IndexOf("$") - 1))
-                                    price = Format(lineTotal / totalm2, "0.00")
-
-                                    dlvrydateidx = mensaje.Body.Substring(profits, limit).ToString.IndexOf("Fecha límite de envío:")
-                                    dlvrydatelgt = itemidx - (dlvrydateidx + 22)
-                                    dlvrydatecmpt = mensaje.Body.Substring(profits, limit).Substring(dlvrydateidx + 22, dlvrydatelgt).Trim
-
-                                    statuslgt = skuidx - (statusidx + 7)
-                                    statuscmpt = mensaje.Body.Substring(profits, limit).Substring(statusidx + 7, statuslgt).Trim
-
-                                    amazonidx = mensaje.Body.Substring(profits, limit).ToString.IndexOf("Cargos de Amazon:")
-                                    profitsidx = mensaje.Body.Substring(profits, limit).ToString.IndexOf("Tus ganancias:")
-                                    amazonlgt = profitsidx - (amazonidx + 17)
-                                    amazoncmpt = mensaje.Body.Substring(profits, limit).Substring(amazonidx + 17, amazonlgt)
-
-                                    If x < solditems - 2 Then
-
-                                        profitslbl = profits + mensaje.Body.ToString.Substring(profits, limit).IndexOf("Tus ganancias:") + 14
-                                        limit = steps - profitslbl
-                                        dlvrydateidx = mensaje.Body.Substring(profitslbl, limit).ToString.IndexOf("Fecha límite de envío:")
-                                        profitscmpt = mensaje.Body.Substring(profitslbl, dlvrydateidx).Trim
-
-                                    Else
-
-                                        profitslbl = profits + mensaje.Body.ToString.Substring(profits, limit).IndexOf("Tus ganancias:") + 14
-                                        profitslgt = steps - profitslbl
-                                        profitscmpt = mensaje.Body.Substring(profitslbl, profitslgt).Trim
-
-                                    End If
-
-                                    stQueryH2 = "Insert Into " & My.Settings.CompanyDB & ".TEMP_Ecommerce values('" & sku & "'," & price & "," & totalm2 & ",'" & x + 2 & "','" & dlvrydatecmpt & "','" & itemcmpt & "','" & statuscmpt & "','" & qty & "'," & lineTotal & ",'" & amazoncmpt & "','" & profitscmpt & "')"
-                                    oRecSetH2.DoQuery(stQueryH2)
-
-                                    dryidx = mensaje.Body.Substring(profits, limit).IndexOf("Costo del envío:")
-
-                                    If dryidx > 0 Then
-
-                                        taxdryidx = mensaje.Body.Substring(profits, limit).IndexOf("Impuesto sobre el envío:")
-                                        drylgt = taxdryidx - (dryidx + 16)
-                                        drycmpt = mensaje.Body.Substring(profits, limit).Substring(dryidx + 16, drylgt).Trim
-                                        dryreverse = StrReverse(drycmpt)
-                                        dry = StrReverse(dryreverse.Substring(0, dryreverse.IndexOf("$") - 1))
-
-                                        stQueryH2 = "Insert Into " & My.Settings.CompanyDB & ".TEMP_Ecommerce values('SERV'," & dry & ",1,'" & x + 2 & "','" & dlvrydatecmpt & "','" & itemcmpt & "','" & statuscmpt & "','" & qty & "'," & lineTotal & ",'" & amazoncmpt & "','" & profitscmpt & "')"
-                                        oRecSetH2.DoQuery(stQueryH2)
-
-                                    End If
-
-                                    profits = profits + mensaje.Body.ToString.Substring(profits, limit).IndexOf("Tus ganancias:") + 14
-
-                                Next
-
-
-                            End If
-
-                            pathpdf = PDF(order, frommsg, datemsg, header, body)
-
-                            ORDR(order, pathpdf)
-
-                            sku = Nothing
-                            price = Nothing
-                            totalm2 = Nothing
-                            dry = Nothing
-                            order = Nothing
-
-                            stQueryH3 = "DELETE FROM " & My.Settings.CompanyDB & ".TEMP_Ecommerce"
-                            oRecSetH3.DoQuery(stQueryH3)
-
                         End If
 
-                    End If
+                        profits = profits + body.ToString.Substring(profits, limit).IndexOf("Tus ganancias:") + 14
 
-                Next
+                    Next
 
-            Next
+
+                End If
+
+                pathpdf = PDF(order, frommsg, datemsg, header, body)
+
+                ORDR(order, pathpdf)
+
+                sku = Nothing
+                price = Nothing
+                totalm2 = Nothing
+                dry = Nothing
+                order = Nothing
+
+                stQueryH3 = "DELETE FROM " & My.Settings.CompanyDB & ".TEMP_Ecommerce"
+                oRecSetH3.DoQuery(stQueryH3)
+
+            End If
 
         Catch ex As Exception
 
@@ -374,7 +484,7 @@ Module Module1
             oRecSetH3.DoQuery(stQueryH3)
 
             Dim stError As String
-            stError = "Error al leer el correo electrónico, ReadEmail. " & ex.Message
+            stError = "Error al leer el correo electrónico, GetInfoEmail. " & ex.Message
             Setlog(stError, order, sku, " ", " ", " ")
 
         End Try
@@ -720,7 +830,7 @@ Module Module1
                 stQueryH3 = "Select ""DocNum"" from ORDR where ""NumAtCard""='" & order & "'"
                 oRecSetH3.DoQuery(stQueryH3)
 
-                If oRecSetH3.RecordCount > 1 Then
+                If oRecSetH3.RecordCount = 1 Then
 
                     oRecSetH3.MoveFirst()
 
